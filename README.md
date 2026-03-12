@@ -224,6 +224,28 @@ For each class session, students are encouraged to follow the workflow below:
 
 This workflow helps maintain consistency during the semester and reduces the most common installation and execution errors.
 
+## Updating the Repository
+
+Since the repository will be updated progressively during the semester, students should regularly download the latest changes from GitHub.
+
+### Step 1. Open the terminal
+
+Open **Command Prompt** or the **integrated terminal in VS Code**.
+
+### Step 2. Move into the repository folder
+
+    cd Repo_Maxtrix_Analisys
+
+### Step 3. Pull the latest changes
+
+    git pull
+
+This command downloads and merges the most recent changes from the remote repository into the local copy.
+
+### Recommendation
+
+Students are encouraged to run `git pull` before starting each class session in order to work with the latest version of the repository.
+
 ## Additional Notes
 
 - If Git is not recognized in the terminal, it must be installed and added correctly to the system path.
@@ -232,7 +254,7 @@ This workflow helps maintain consistency during the semester and reduces the mos
 - It is recommended that all package installations be done only after activating the virtual environment.
 - Students should avoid installing packages globally unless it is absolutely necessary.
 
-### Summary of the main installation commands
+### Summary of the main installation and update commands
 
     git clone https://github.com/Normando1945/Repo_Maxtrix_Analisys.git
     cd Repo_Maxtrix_Analisys
@@ -241,6 +263,20 @@ This workflow helps maintain consistency during the semester and reduces the mos
     pip install -r requirements.txt
     pip install -e .
 
+### Summary of the main update commands
+
+    cd Repo_Maxtrix_Analisys
+    venv\Scripts\activate
+    git pull
+
 ## General Recommendation
 
 Students are encouraged to keep this repository updated throughout the semester and use it as the main reference point for class examples, numerical implementations, and progressive development of matrix-based structural analysis tools in Python.
+
+## Important Note for Students
+
+This repository is maintained exclusively by the course author.
+
+Students are expected to clone the repository and update their local copies during the semester. They should not modify the original online repository.
+
+If students wish to experiment with the code, they are encouraged to do so in their local copies or in personal forks of the repository.
