@@ -1,5 +1,9 @@
-<p align="center">
+<!-- <p align="center">
   <img src="https://media.giphy.com/media/G6sJqVpD1U4jC/giphy.gif" width="700" alt="Matrix Banner">
+</p> -->
+
+<p align="center">
+  <img src="https://media4.giphy.com/media/v1.Y2lkPTc5MGI3NjExcXVodWNsM3Bia3duZGljZzRqMTI2MGFiZjlkZzBwcmhuaWxydjlpaiZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/AOSwwqVjNZlDO/giphy.gif" width="90%" alt="Matrix Banner">
 </p>
 
 <h1 align="center">🟢 Matrix-Based Solution of 2D Moment-Resisting Frames</h1>
