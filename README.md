@@ -122,9 +122,9 @@ Inside VS Code, verify that the selected terminal is:
 
 If another terminal appears and students want to change it:
 
-1. Click the dropdown menu in the terminal panel.
-2. Select **Command Prompt**.
-3. Open a new terminal.
+1. Click the dropdown menu in the terminal panel
+2. Select **Command Prompt**
+3. Open a new terminal
 
 From this point on, it is recommended that all commands be executed from this terminal in VS Code.
 
@@ -285,6 +285,37 @@ This repository is maintained exclusively by the course author.
 Students are expected to clone the repository and update their local copies during the semester. They should not modify the original online repository.
 
 If students wish to experiment with the code, they are encouraged to do so in their local copies or in personal forks of the repository.
+
+## How to Cite
+
+If you use this repository in academic work, class projects, reports, or educational material, please cite it as follows.
+
+### BibTeX
+
+    @misc{celi2026matrix,
+      author       = {Carlos Andrés Celi Sánchez},
+      title        = {Matrix Structural Analysis: Introduction to Matrix-Based Analysis of Structures},
+      year         = {2026},
+      publisher    = {GitHub},
+      journal      = {GitHub repository},
+      howpublished = {\url{https://github.com/Normando1945/Repo_Maxtrix_Analisys}}
+    }
+
+### APA (7th Edition)
+
+Celi Sánchez, C. A. (2026). *Matrix Structural Analysis: Introduction to Matrix-Based Analysis of Structures* [Computer software]. GitHub. https://github.com/Normando1945/Repo_Maxtrix_Analisys
+
+## License
+
+This project is licensed under the MIT License. See the `LICENSE` file for more details.
+
+## Contributing
+
+This repository is maintained by the author as the official course repository for **Matrix Structural Analysis**.
+
+Students are encouraged to use the repository, report bugs, and suggest improvements whenever necessary. Nevertheless, the official development and organization of the repository remain under the supervision of the author.
+
+Suggestions for improvement may be shared through issues or pull requests, which will be reviewed before any change is incorporated into the repository.
 
 ## General Recommendation
 
