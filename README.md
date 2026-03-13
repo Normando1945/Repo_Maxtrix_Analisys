@@ -303,7 +303,7 @@ If you use this repository in academic work, class projects, reports, or educati
 
 ### APA (7th Edition)
 
-Celi Sánchez, C. A. (2026). *Matrix Structural Analysis: Introduction to Matrix-Based Analysis of Structures* [Computer software]. GitHub. https://github.com/Normando1945/Repo_Maxtrix_Analisys
+Celi Sánchez, C. A. (2026). *Matrix Structural Analysis: Introduction to Matrix-Based Analysis of Structures* [Structural Engineering]. GitHub. https://github.com/Normando1945/Repo_Maxtrix_Analisys
 
 ## License
 
