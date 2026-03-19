@@ -12,10 +12,6 @@
 This repository has been created to support the teaching and learning process of the **Matrix Structural Analysis** course during the current academic semester. It will progressively include theoretical notes, Python codes, numerical examples, and class-based implementations, starting from the fundamental concepts of matrix structural analysis and advancing toward more refined formulations for 2D frame elements.
 
 
-<img width="465" height="408" alt="image" src="https://github.com/user-attachments/assets/55977cbe-ee9c-44f7-8a5c-bdef0e4fbfe2" />
-
-
-
 ## Course Roadmap
 
 This repository is expected to progressively cover topics such as:
