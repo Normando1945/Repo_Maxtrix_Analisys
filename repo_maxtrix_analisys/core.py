@@ -27,6 +27,47 @@ class SimpleMatrixStack:
 
 #########################################################################################################################################
 #########################################################################################################################################
+##################################### Stiffness Matrix RMF (due Flexural + Shear deformation) ###########################################
+#########################################################################################################################################
+#########################################################################################################################################
+class StiffnessMatrix_simple:
+    
+    def __init__(self, A,I,E,L,G,f):
+        self.A = A
+        self.I = I
+        self.E = E
+        self.L = L
+        self.G = G
+        self.f = f
+    
+    def stiffness_matrix_Element_RMF_L(self):
+        A = self.A
+        I = self.I
+        E = self.E
+        L = self.L
+        G = self.G
+        f = self.f
+        
+        Be = 6*E*I*f / (G*A*L**2)
+        r = A*E /L
+        kp = 2*E*I/L * (2 + Be)/(1 + 2*Be)
+        ap = 2*E*I/L * (1 - Be)/(1 - 2*Be)
+        bp = 6*E*I/(L**2) * (1)/(1 + 2*Be)
+        tp = 12*E*I/(L**3) * (1)/(1 + 2*Be)
+
+        kl = np.array([[r,0,0,-r,0,0],
+                    [0,tp,bp,0,-tp,bp],
+                    [0,bp,kp,0,-bp,ap],
+                    [-r,0,0,r,0,0],
+                    [0,-tp,-bp,0,tp,-bp],
+                    [0,bp,ap,0,-bp,kp]], dtype=float)
+    
+        return kl
+    
+
+
+#########################################################################################################################################
+#########################################################################################################################################
 ############################ Stiffness Matrix for 2D MF Element with Rigid End Offsets and Shear Deformation ############################
 #########################################################################################################################################
 #########################################################################################################################################
@@ -146,13 +187,14 @@ class MF_L_elements2D:                                                          
 #########################################################################################################################################
 
 class M_visual_2D_3D:                                                                                               # Class for visualize any values of a matrix     
-    def __init__(self, Matrix):                                                                                     # Initialize the class with the matrix to be plotted
+    def __init__(self, Matrix, color = 'seismic'):                                                                                     # Initialize the class with the matrix to be plotted
         self.ElemDraw = Matrix                                                                                      # Store the input matrix as an internal variable
-
+        self.color = color
     def M_visual(self):                                                                                             # Method to generate the 2D and 3D visualization of the matrix values
 
         ElemDraw = self.ElemDraw                                                                                    # Local variable containing the matrix to be visualized
-
+        color = self.color
+        
         fig = plt.figure(figsize=(18, 9))                                                                           # Create the main figure with a wide format
         fig.suptitle("Representation of Stiffness Matrix Values",                                                   # Add a global title to the figure
              fontsize=18, fontweight='bold', color=(0, 0, 1))                                                       # Define font size, bold style, and blue color
@@ -161,7 +203,7 @@ class M_visual_2D_3D:                                                           
         # -----------------------------------------------
         ax0 = fig.add_subplot(1, 2, 1)                                                                              # Create the first subplot for the 2D representation
         lim = np.max(np.abs(ElemDraw))                                                                              # Compute the maximum absolute value for symmetric color scaling
-        im0 = ax0.imshow(ElemDraw, cmap='seismic', aspect='equal', vmin=-lim, vmax=lim)                             # Display the matrix as a 2D color map
+        im0 = ax0.imshow(ElemDraw, cmap= color, aspect='equal', vmin=-lim, vmax=lim)                                # Display the matrix as a 2D color map
         cbar0 = fig.colorbar(im0, ax=ax0, pad=0.01, fraction=0.03)                                                  # Add a colorbar associated with the 2D plot
         cbar0.set_label('Values')                                                                                   # Label the colorbar
         ax0.set_title('Matrix Values in 2D', fontweight='bold')                                                     # Set the title of the 2D subplot
