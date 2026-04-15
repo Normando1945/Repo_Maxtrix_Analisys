@@ -31,16 +31,24 @@ class SimpleMatrixStack:
 #########################################################################################################################################
 #########################################################################################################################################
 class StiffnessMatrix_simple:
+    '''
+    hola
+    '''
     
-    def __init__(self, A,I,E,L,G,f):
+    def __init__(self, A,I,E,L,G,f,da = 0, db = 0):
         self.A = A
         self.I = I
         self.E = E
         self.L = L
         self.G = G
         self.f = f
+        self.da = da
+        self.db = db
     
     def stiffness_matrix_Element_RMF_L(self):
+        '''
+        Calculate the stiffness matrix inluding shear deformation of a RMF width 6 DOF
+        '''
         A = self.A
         I = self.I
         E = self.E
@@ -64,7 +72,27 @@ class StiffnessMatrix_simple:
     
         return kl
     
-
+    def transform_matrix_df_to_indf(self):
+        da = self.da
+        db = self.db
+        '''
+        This function transform the stiffness matrix of deformable state to infeformable state
+        '''
+        Tr = np.array([[1,0,0,0,0,0],
+                       [0,1,0,0,0,0],
+                       [0,da,1,0,0,0],
+                       [0,0,0,1,0,0],
+                       [0,0,0,0,1,0],
+                       [0,0,0,0,-db,1],
+                       ])
+        # Tr = np.array([[1,0,0,0,0,0],
+        #                [0,1,da,0,0,0],
+        #                [0,0,1,0,0,0],
+        #                [0,0,0,1,0,0],
+        #                [0,0,0,0,1,-db],
+        #                [0,0,0,0,0,1],
+        #                ])
+        return Tr
 
 #########################################################################################################################################
 #########################################################################################################################################
@@ -73,6 +101,12 @@ class StiffnessMatrix_simple:
 #########################################################################################################################################
 
 class MF_K_T_L_Element2D:
+    '''
+    What this class does
+    --------------------
+    
+    - Builds and returns the local stiffness matrix of the 2D MF element considering axial deformation, Timoshenko-type shear deformation, flexural    deformation, and the influence of rigid end offsets.
+    '''
     def __init__(self, E, A, I, L, nu=0.20, f=6/5, dA=0.0, dB=0.0, thetha=0.0):                                     # Initialize MF element properties
         self.E  = E                                                                                                 # Modulus of elasticity
         self.A  = A                                                                                                 # Cross-sectional area
@@ -84,7 +118,9 @@ class MF_K_T_L_Element2D:
         self.dB = dB                                                                                                # Rigid end offset at end B (local)
         self.thetha = thetha                                                                                        # Orientation angle in degrees
 
-    def stiffness_matrix_MF_L(self):
+    def stiffness_matrix_MF_EI_AE_GAf_da_db(self):
+        '''
+        '''
         E  = self.E                                                                                                 # Using element properties (Modulus of elasticity)
         A  = self.A                                                                                                 # Using element properties (Cross-sectional area)
         I  = self.I                                                                                                 # Using element properties (Moment of inertia)
