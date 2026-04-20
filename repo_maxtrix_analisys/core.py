@@ -59,7 +59,7 @@ class StiffnessMatrix_simple:
         Be = 6*E*I*f / (G*A*L**2)
         r = A*E /L
         kp = 2*E*I/L * (2 + Be)/(1 + 2*Be)
-        ap = 2*E*I/L * (1 - Be)/(1 - 2*Be)
+        ap = 2*E*I/L * (1 - Be)/(1 + 2*Be)
         bp = 6*E*I/(L**2) * (1)/(1 + 2*Be)
         tp = 12*E*I/(L**3) * (1)/(1 + 2*Be)
 
