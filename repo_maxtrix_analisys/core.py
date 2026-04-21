@@ -135,7 +135,7 @@ class MF_K_T_L_Element2D:
 
         # --- Shear deformation correction (Timoshenko-type) -------------------------------------------------------
         G = E / (1.0 + 2 * nu)                                                                                      # Shear modulus: G = E / [2(1+nu)]
-        beta = (6.0 * E * I) / (G * A * L**2) * f                                                                   # beta = (6EI)/(GA L^2) * f
+        beta = 6*E*I*f / (G*A*L**2)                                                                                 # beta = (6EI)/(GA L^2) * f
 
         # --- Base (prime) coefficients including shear deformation ------------------------------------------------
         t1 = (12.0 * E * I) / (L**3) * (1.0 / (1.0 + 2.0 * beta))                                                   # t' = 12EI/L^3 * 1/(1+2beta)
