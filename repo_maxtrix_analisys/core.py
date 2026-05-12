@@ -167,7 +167,8 @@ class MF_K_T_L_Element2D:
         return K_e                                                                                                  # Return the element stiffness matrix
     
     def transformation_matrix_2D(self):
-        thetha = np.deg2rad(self.thetha)                                                                            # Using orientation angle
+        thetha_radian = self.thetha
+        thetha = np.deg2rad(thetha_radian)                                                                            # Using orientation angle
         
         c = np.cos(thetha)                                                                                          # Cosine of the angle
         s = np.sin(thetha)                                                                                          # Sine of the angle
@@ -232,7 +233,7 @@ class M_visual_2D_3D:                                                           
         color = self.color
         
         fig = plt.figure(figsize=(18, 9))                                                                           # Create the main figure with a wide format
-        fig.suptitle("Representation of Stiffness Matrix Values",                                                   # Add a global title to the figure
+        fig.suptitle("Representation Matrix Values",                                                   # Add a global title to the figure
              fontsize=18, fontweight='bold', color=(0, 0, 1))                                                       # Define font size, bold style, and blue color
         # -----------------------------------------------
         # Subplot 1: Matrix in 2D
