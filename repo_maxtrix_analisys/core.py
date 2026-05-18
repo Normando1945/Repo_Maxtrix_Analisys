@@ -192,28 +192,34 @@ class MF_K_T_L_Element2D:
 #########################################################################################################################################
 #########################################################################################################################################
 
-class MF_L_elements2D:                                                                                              # Class for managing multiple 2D MF elements     
-    def __init__(self):                                                                                             # Initialize the list of elements
+class Manager_K_T_elements2D:                                                                                              # Class for managing multiple 2D MF elements     
+    def __init__(self, method = 'MF'):                                                                                             # Initialize the list of elements
         self.elements = []                                                                                          # List to store MF elements
-
+        self.method = method
+        
     def add_element(self, element):                                                                                 # Method to add an element to the list                            
         self.elements.append(element)                                                                               # Append the element to the list                 
 
     def stacked_stiffness_matrices(self):                                                                           # Method to stack stiffness matrices of all elements         
+        method = self.method
         K_L_blocks = []                                                                                             # Initialize list to hold stiffness matrices                
 
-        for elem in self.elements:                                                                                  # Loop through each element
-            K_L_blocks.append(elem.stiffness_matrix_MF_L())                                                         # Append the stiffness matrix of the element
-
+        if method == 'MF':
+                for elem in self.elements:                                                                                  # Loop through each element
+                        K_L_blocks.append(elem.stiffness_matrix_MF_EI_AE_GAf_da_db())                                                         # Append the stiffness matrix of the element
+        else:
+                for elem in self.elements:                                                                                  # Loop through each element
+                        K_L_blocks.append(elem.stiffness_matrix_ARM_AE())   
+                
         return np.vstack(K_L_blocks)                                                                                # Return the stacked stiffness matrices as a single array
     
-    def stacked_transformation_matrices(self):                                                                      # Method to stack transformation matrices of all elements         
-        T_blocks = []                                                                                               # Initialize list to hold transformation matrices                
+#     def stacked_transformation_matrices(self):                                                                      # Method to stack transformation matrices of all elements         
+#         T_blocks = []                                                                                               # Initialize list to hold transformation matrices                
 
-        for elem in self.elements:                                                                                  # Loop through each element
-            T_blocks.append(elem.transformation_matrix_2D())                                                        # Append the transformation matrix of the element
+#         for elem in self.elements:                                                                                  # Loop through each element
+#             T_blocks.append(elem.transformation_matrix_2D())                                                        # Append the transformation matrix of the element
 
-        return np.vstack(T_blocks)                                                                                  # Return the stacked transformation matrices as a single array
+#         return np.vstack(T_blocks)                                                                                  # Return the stacked transformation matrices as a single array
     
 
 
@@ -419,3 +425,56 @@ class Manual_Flexural_Method():
 
             plt.tight_layout() 
             plt.show()        
+
+#########################################################################################################################################
+#########################################################################################################################################
+############################################## Stiffness Matrix for TRUSS Element #######################################################
+#########################################################################################################################################
+#########################################################################################################################################
+
+class ARM_K_T_Element2D:
+    '''
+    What this class does
+    --------------------
+    
+    - Builds and returns the local stiffness matrix of the TRUSS element considering axial deformation.
+    '''
+    def __init__(self, E, A, L, thetha=0.0):                                                                        # Initialize TRUSS element properties
+        self.E  = E                                                                                                 # Modulus of elasticity
+        self.A  = A                                                                                                 # Cross-sectional area
+        self.L  = L                                                                                                 # Length of the flexible span (between element end nodes)
+        self.thetha = thetha                                                                                        # Orientation angle in degrees
+
+    def stiffness_matrix_ARM_AE(self):
+        '''
+        '''
+        E  = self.E                                                                                                 # Using element properties (Modulus of elasticity)
+        A  = self.A                                                                                                 # Using element properties (Cross-sectional area)
+        L  = self.L                                                                                                 # Using element properties (Length of the flexible span)
+        
+        # --- Axial stiffness term ---------------------------------------------------------------------------------
+        r = A * E / L                                                                                               # r = AE/L
+
+        # --- Local stiffness matrix for TRUSS element (axial) ----------------------
+        K_ea = np.array([
+                [A*E/L, -A*E/L],
+                [-A*E/L, A*E/L]
+                    ], dtype=float)
+
+        return K_ea                                                                                                 # Return the element stiffness matrix
+    
+    def transformation_ARM_matrix_2D(self):
+        thetha_radian = self.thetha
+        thetha = np.deg2rad(thetha_radian)                                                                          # Using orientation angle
+        
+        c = np.cos(thetha)                                                                                          # Cosine of the angle
+        s = np.sin(thetha)                                                                                          # Sine of the angle
+
+        T_ARM = np.array([                                                                                          # Transformation matrix for 2D element
+            [c, 0],
+            [s, 0],
+            [0, c],
+            [0, s]
+        ], dtype=float)
+
+        return T_ARM                                                                                                # Return the transformation matrix
