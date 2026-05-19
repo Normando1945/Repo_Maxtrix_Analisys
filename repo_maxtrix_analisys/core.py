@@ -213,13 +213,17 @@ class Manager_K_T_elements2D:                                                   
                 
         return np.vstack(K_L_blocks)                                                                                # Return the stacked stiffness matrices as a single array
     
-#     def stacked_transformation_matrices(self):                                                                      # Method to stack transformation matrices of all elements         
-#         T_blocks = []                                                                                               # Initialize list to hold transformation matrices                
+    def stacked_transformation_matrices(self):                                                                      # Method to stack transformation matrices of all elements         
+        method = self.method
+        T_blocks = []                                                                                               # Initialize list to hold transformation matrices                
 
-#         for elem in self.elements:                                                                                  # Loop through each element
-#             T_blocks.append(elem.transformation_matrix_2D())                                                        # Append the transformation matrix of the element
-
-#         return np.vstack(T_blocks)                                                                                  # Return the stacked transformation matrices as a single array
+        if method == 'MF':
+                for elem in self.elements:                                                                                  # Loop through each element
+                        T_blocks.append(elem.transformation_matrix_2D())                                                        # Append the transformation matrix of the element
+                else:
+                        T_blocks.append(elem.transformation_ARM_matrix_2D()) 
+        
+        return np.vstack(T_blocks)                                                                                  # Return the stacked transformation matrices as a single array
     
 
 
