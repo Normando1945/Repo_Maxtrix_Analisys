@@ -85,13 +85,6 @@ class StiffnessMatrix_simple:
                        [0,0,0,0,1,0],
                        [0,0,0,0,-db,1],
                        ])
-        # Tr = np.array([[1,0,0,0,0,0],
-        #                [0,1,da,0,0,0],
-        #                [0,0,1,0,0,0],
-        #                [0,0,0,1,0,0],
-        #                [0,0,0,0,1,-db],
-        #                [0,0,0,0,0,1],
-        #                ])
         return Tr
 
 #########################################################################################################################################
@@ -184,7 +177,58 @@ class MF_K_T_L_Element2D:
 
         return T_MF                                                                                                 # Return the transformation matrix
 
+#########################################################################################################################################
+#########################################################################################################################################
+############################################## Stiffness Matrix for TRUSS Element #######################################################
+#########################################################################################################################################
+#########################################################################################################################################
 
+class ARM_K_T_Element2D:
+    '''
+    What this class does
+    --------------------
+    
+    - Builds and returns the local stiffness matrix of the TRUSS element considering axial deformation.
+    '''
+    def __init__(self, E, A, L, thetha=0.0):                                                                        # Initialize TRUSS element properties
+        self.E  = E                                                                                                 # Modulus of elasticity
+        self.A  = A                                                                                                 # Cross-sectional area
+        self.L  = L                                                                                                 # Length of the flexible span (between element end nodes)
+        self.thetha = thetha                                                                                        # Orientation angle in degrees
+
+    def stiffness_matrix_ARM_AE(self):
+        '''
+        '''
+        E  = self.E                                                                                                 # Using element properties (Modulus of elasticity)
+        A  = self.A                                                                                                 # Using element properties (Cross-sectional area)
+        L  = self.L                                                                                                 # Using element properties (Length of the flexible span)
+        
+        # --- Axial stiffness term ---------------------------------------------------------------------------------
+        r = A * E / L                                                                                               # r = AE/L
+
+        # --- Local stiffness matrix for TRUSS element (axial) ----------------------
+        K_ea = np.array([
+                [A*E/L, -A*E/L],
+                [-A*E/L, A*E/L]
+                    ], dtype=float)
+
+        return K_ea                                                                                                 # Return the element stiffness matrix
+    
+    def transformation_ARM_matrix_2D(self):
+        thetha_radian = self.thetha
+        thetha = np.deg2rad(thetha_radian)                                                                          # Using orientation angle
+        
+        c = np.cos(thetha)                                                                                          # Cosine of the angle
+        s = np.sin(thetha)                                                                                          # Sine of the angle
+
+        T_ARM = np.array([                                                                                          # Transformation matrix for 2D element
+            [c, 0],
+            [s, 0],
+            [0, c],
+            [0, s]
+        ], dtype=float)
+
+        return T_ARM                                                                                                # Return the transformation matrix
 
 #########################################################################################################################################
 #########################################################################################################################################
@@ -430,55 +474,4 @@ class Manual_Flexural_Method():
             plt.tight_layout() 
             plt.show()        
 
-#########################################################################################################################################
-#########################################################################################################################################
-############################################## Stiffness Matrix for TRUSS Element #######################################################
-#########################################################################################################################################
-#########################################################################################################################################
 
-class ARM_K_T_Element2D:
-    '''
-    What this class does
-    --------------------
-    
-    - Builds and returns the local stiffness matrix of the TRUSS element considering axial deformation.
-    '''
-    def __init__(self, E, A, L, thetha=0.0):                                                                        # Initialize TRUSS element properties
-        self.E  = E                                                                                                 # Modulus of elasticity
-        self.A  = A                                                                                                 # Cross-sectional area
-        self.L  = L                                                                                                 # Length of the flexible span (between element end nodes)
-        self.thetha = thetha                                                                                        # Orientation angle in degrees
-
-    def stiffness_matrix_ARM_AE(self):
-        '''
-        '''
-        E  = self.E                                                                                                 # Using element properties (Modulus of elasticity)
-        A  = self.A                                                                                                 # Using element properties (Cross-sectional area)
-        L  = self.L                                                                                                 # Using element properties (Length of the flexible span)
-        
-        # --- Axial stiffness term ---------------------------------------------------------------------------------
-        r = A * E / L                                                                                               # r = AE/L
-
-        # --- Local stiffness matrix for TRUSS element (axial) ----------------------
-        K_ea = np.array([
-                [A*E/L, -A*E/L],
-                [-A*E/L, A*E/L]
-                    ], dtype=float)
-
-        return K_ea                                                                                                 # Return the element stiffness matrix
-    
-    def transformation_ARM_matrix_2D(self):
-        thetha_radian = self.thetha
-        thetha = np.deg2rad(thetha_radian)                                                                          # Using orientation angle
-        
-        c = np.cos(thetha)                                                                                          # Cosine of the angle
-        s = np.sin(thetha)                                                                                          # Sine of the angle
-
-        T_ARM = np.array([                                                                                          # Transformation matrix for 2D element
-            [c, 0],
-            [s, 0],
-            [0, c],
-            [0, s]
-        ], dtype=float)
-
-        return T_ARM                                                                                                # Return the transformation matrix
