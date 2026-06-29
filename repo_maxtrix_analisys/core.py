@@ -359,7 +359,268 @@ class M_visual_2D_3D:                                                           
         plt.tight_layout()                                                                                          # Adjust subplot spacing automatically
         plt.show()                                                                                                  # Display the final figure
         
-     
+
+#########################################################################################################################################
+#########################################################################################################################################
+################################################### Plot Global Displacement of RMF #####################################################
+#########################################################################################################################################
+#########################################################################################################################################
+
+
+class PlotGlobalDislplacemet():
+      def __init__(self, fs = 20, n_sub = 20,Lee_Nodos = any, delta_g_full = any, CoordNode = any, hv = 0.30, bc = 0.30, color = 'coolwarm'):
+            self.fs = fs
+            self.delta_g_full = delta_g_full
+            self.CoordNode = CoordNode
+            self.n_sub = n_sub
+            self.hv = hv
+            self.bc = bc
+            self.color = color
+            self.Lee_Nodos = Lee_Nodos 
+      
+      def PlotGD_RMF(self):
+
+        fs = self.fs
+        delta_g_full = self.delta_g_full
+        CoordNode = self.CoordNode
+        n_sub = self.n_sub
+        bv = self.hv
+        bc = self.bc
+        color = self.color
+        Lee_Nodos = self.Lee_Nodos
+
+        delta_g_values = np.asarray(delta_g_full, dtype=float).ravel()
+
+        # --- Hermite cubic shape functions for bending deformation ----------
+        # v(s) = v_i*H1(s) + theta_i*L*H2(s) + v_j*H3(s) + theta_j*L*H4(s)
+        def H1(s): return 1 - 3*s**2 + 2*s**3
+        def H2(s): return s - 2*s**2 + s**3
+        def H3(s): return 3*s**2 - 2*s**3
+        def H4(s): return -s**2 + s**3
+
+        s_vals = np.linspace(0, 1, n_sub)
+
+        # Section thickness perpendicular to each element axis (visual width)
+        # Elements 1,2 = beams (bv=0.30m). Elements 3,4,5 = columns (bc=0.40m).
+        elem_thickness = [bv, bv, bc, bc, bc]
+
+        # --- Colormap: displacement magnitude -> color (ETABS-like) --------
+        cmap = plt.get_cmap(color)
+
+        # --- Step 1: loop over all elements, compute deformed geometry ------
+        # First pass to find global range of displacement magnitudes for
+        # consistent color scaling across all elements.
+        all_mags = []
+        element_data = []
+
+        for e, (n1, n2) in enumerate(Lee_Nodos):
+                i = n1 - 1
+                j = n2 - 1
+
+                xi, yi = CoordNode[i, 0], CoordNode[i, 1]
+                xj, yj = CoordNode[j, 0], CoordNode[j, 1]
+                dx = xj - xi
+                dy = yj - yi
+                L_elem = np.sqrt(dx**2 + dy**2)
+                cos_theta = dx / L_elem if L_elem > 0 else 1.0
+                sin_theta = dy / L_elem if L_elem > 0 else 0.0
+
+                ux_i, uy_i, rot_i = CoordNode[i, 2], CoordNode[i, 3], CoordNode[i, 4]
+                ux_j, uy_j, rot_j = CoordNode[j, 2], CoordNode[j, 3], CoordNode[j, 4]
+
+                # Transform global nodal displacements to local element axes:
+                # u_local =  ux*cos + uy*sin   (axial)
+                # v_local = -ux*sin + uy*cos   (transverse)
+                # Rotation is invariant in 2D.
+                ul_i =  ux_i * cos_theta + uy_i * sin_theta
+                ul_j =  ux_j * cos_theta + uy_j * sin_theta
+                vl_i = -ux_i * sin_theta + uy_i * cos_theta
+                vl_j = -ux_j * sin_theta + uy_j * cos_theta
+
+                u_interp_arr = np.zeros(n_sub)
+                v_interp_arr = np.zeros(n_sub)
+                x_local_def   = np.zeros(n_sub)
+                y_local_def   = np.zeros(n_sub)
+
+                for k, s in enumerate(s_vals):
+                        # Hermite interpolation for transverse displacement (includes rotations)
+                        v_interp_arr[k] = (vl_i * H1(s) + rot_i * L_elem * H2(s)
+                                        + vl_j * H3(s) + rot_j * L_elem * H4(s))
+                        # Linear interpolation for axial displacement
+                        u_interp_arr[k] = ul_i * (1 - s) + ul_j * s
+                        # Scaled deformed coordinates for visualization
+                        x_local_def[k] = s * L_elem + u_interp_arr[k] * fs
+                        y_local_def[k] = v_interp_arr[k] * fs
+
+                # Deformed centerline in global coordinates
+                x_def_curve = xi + x_local_def * cos_theta - y_local_def * sin_theta
+                y_def_curve = yi + x_local_def * sin_theta + y_local_def * cos_theta
+
+                # Normal vector (perpendicular to element axis)
+                norm_x = -sin_theta
+                norm_y =  cos_theta
+                half_t = elem_thickness[e] / 2.0
+
+                # Offset curves for the two sides of the member
+                x_side1 = x_def_curve + norm_x * half_t
+                y_side1 = y_def_curve + norm_y * half_t
+                x_side2 = x_def_curve - norm_x * half_t
+                y_side2 = y_def_curve - norm_y * half_t
+
+                # Global displacement magnitude at each point along the element
+                ux_global = u_interp_arr * cos_theta - v_interp_arr * sin_theta
+                uy_global = u_interp_arr * sin_theta + v_interp_arr * cos_theta
+                mags = np.sqrt(ux_global**2 + uy_global**2)
+                all_mags.extend(mags.tolist())
+
+                # Store for the drawing pass
+                element_data.append({
+                        "x_def": x_def_curve,
+                        "y_def": y_def_curve,
+                        "x_s1": x_side1, "y_s1": y_side1,
+                        "x_s2": x_side2, "y_s2": y_side2,
+                        "mags": mags,
+                        "xi": xi, "yi": yi, "xj": xj, "yj": yj,
+                        "cos": cos_theta, "sin": sin_theta,
+                        "thick": elem_thickness[e],
+                })
+
+                print(f"elem_{e+1}, node i = {n1} to node j = {n2}")
+
+        # --- Global range for colormap normalization -------------------------
+        d_min = min(all_mags) if all_mags else 0
+        d_max = max(all_mags) if all_mags else 1
+
+        if d_max == d_min:
+                d_max = d_min + 1e-12
+
+        norm = plt.Normalize(d_min, d_max)
+        print(f"Displacement range: {d_min*100:.4f} to {d_max*100:.4f} cm")
+
+        # --- Compute bounding box from all deformed points ------------------
+        # Both subplots will share the same axis limits so the deformation
+        # scale is directly comparable between original and deformed shapes.
+        # We collect all deformed centerline + offset curve points.
+        all_x = []
+        all_y = []
+        for data in element_data:
+                all_x.extend(data["x_def"])
+                all_y.extend(data["y_def"])
+                all_x.extend(data["x_s1"])
+                all_y.extend(data["y_s1"])
+                all_x.extend(data["x_s2"])
+                all_y.extend(data["y_s2"])
+        x_margin = 0.05 * (max(all_x) - min(all_x)) if all_x else 0.5
+        y_margin = 0.05 * (max(all_y) - min(all_y)) if all_y else 0.5
+        x_lim = [min(all_x) - x_margin, max(all_x) + x_margin]
+        y_lim = [min(all_y) - y_margin, max(all_y) + y_margin]
+
+
+        # --- Figure ----------------------------------------------------------
+
+        fig, ax = plt.subplots(1, 2, figsize=(40, 10), constrained_layout=True)
+        fig.suptitle("Frame Structure: Original and Deformed Shapes (with Rotations)",
+                fontsize=16, fontweight="bold", color=(0,0,1))
+
+        for a in ax:
+                a.set_xlim(x_lim)
+                a.set_ylim(y_lim)
+                a.set_xlabel("X [m]")
+                a.set_ylabel("Y [m]")
+
+        # ==================================================================
+        # LEFT SUBPLOT: original (undeflected) shape
+        # ==================================================================
+        for e, data in enumerate(element_data):
+                xi, yi, xj, yj = data["xi"], data["yi"], data["xj"], data["yj"]
+                cos_t, sin_t = data["cos"], data["sin"]
+                half_t = data["thick"] / 2.0
+                nx, ny = -sin_t, cos_t
+                rect = np.array([
+                        [xi + nx*half_t, yi + ny*half_t],
+                        [xj + nx*half_t, yj + ny*half_t],
+                        [xj - nx*half_t, yj - ny*half_t],
+                        [xi - nx*half_t, yi - ny*half_t],
+                ])
+                ax[0].add_patch(plt.Polygon(rect, closed=True,
+                        facecolor="#aaaaaa", edgecolor="#333333", lw=0.8, zorder=1))
+                # Black centerline overlay (like the original line representation)
+                ax[0].plot([xi, xj], [yi, yj], color=(0,0,0), lw=1.5, ls="-", zorder=6)
+                mx, my = (xi + xj) / 2, (yi + yj) / 2
+                ax[0].text(mx, my, f"E_{e+1}", fontsize=12,
+                        ha="center", va="center", color=(1,1,1),
+                        fontweight="bold", zorder=3)
+
+        for n in range(len(CoordNode)):
+                ax[0].text(CoordNode[n, 0], CoordNode[n, 1], f"N{n+1}",
+                fontsize=12, ha="right", va="bottom", color=(1,0,0), zorder=4)
+        ax[0].set_title("Original shape (with actual section width)")
+
+        # ==================================================================
+        # RIGHT SUBPLOT: deformed shape with displacement contour
+        # ==================================================================
+        for data in element_data:
+                x_s1, y_s1 = data["x_s1"], data["y_s1"]
+                x_s2, y_s2 = data["x_s2"], data["y_s2"]
+                mags = data["mags"]
+
+                # Gray undeflected reference (ghosted)
+                xi, yi, xj, yj = data["xi"], data["yi"], data["xj"], data["yj"]
+                cos_t, sin_t = data["cos"], data["sin"]
+                half_t = data["thick"] / 2.0
+                nx, ny = -sin_t, cos_t
+                rect_undef = np.array([
+                        [xi + nx*half_t, yi + ny*half_t],
+                        [xj + nx*half_t, yj + ny*half_t],
+                        [xj - nx*half_t, yj - ny*half_t],
+                        [xi - nx*half_t, yi - ny*half_t],
+                ])
+                ax[1].add_patch(plt.Polygon(rect_undef, closed=True,
+                facecolor="#dddddd", edgecolor="none", alpha=0.3, zorder=1))
+
+                # Colored quads along the deformed element
+                for k in range(n_sub - 1):
+                        quad = np.array([
+                        [x_s1[k],   y_s1[k]],
+                        [x_s1[k+1], y_s1[k+1]],
+                        [x_s2[k+1], y_s2[k+1]],
+                        [x_s2[k],   y_s2[k]],
+                        ])
+                        color = cmap(norm(mags[k]))
+                        ax[1].add_patch(plt.Polygon(quad, closed=True,
+                        facecolor=color, edgecolor=color,
+                        lw=0.5, alpha=0.95, zorder=2))
+
+                # Black centerline overlay (like the original line representation)
+                x_def, y_def = data["x_def"], data["y_def"]
+                ax[1].plot(x_def, y_def, color=(0,0,0), lw=1.5, ls="-", zorder=6)
+
+                # Deformed node markers (white-filled circles)
+                ax[1].scatter([x_def[0], x_def[-1]], [y_def[0], y_def[-1]],
+                        color=(0,0,0), s=50, facecolors=(1,1,1), zorder=5)
+
+        ax[1].set_title(f"Deformed shape with displacement contour (scaled by fs = {fs})")
+
+        # --- Colorbar ---------------------------------------------------------
+        sm = plt.cm.ScalarMappable(cmap=cmap, norm=norm)
+        sm.set_array([])
+        cbar = fig.colorbar(sm, ax=ax[1], shrink=0.6, pad=0.02)
+        cbar.set_label("Displacement magnitude [m]", fontsize=12)
+
+        # --- Node displacement annotations on the deformed shape --------------
+        for n in range(len(CoordNode)):
+                x_node_def = CoordNode[n, 0] + CoordNode[n, 2] * fs
+                y_node_def = CoordNode[n, 1] + CoordNode[n, 3] * fs
+                ax[1].text(x_node_def, y_node_def,
+                        f"d=({CoordNode[n, 2]*100:.2f}, {CoordNode[n, 3]*100:.2f}) cm\n"
+                        f"$\\theta$={CoordNode[n, 4]*1e6:.2f} $\\times10^{{-6}}$ rad",
+                        fontsize=12, ha="center", va="bottom", color=(0,0,1))
+
+        plt.show()
+
+
+
+
 #########################################################################################################################################
 #########################################################################################################################################
 ########################################################## Plot Results Simple Beam #####################################################
@@ -504,4 +765,3 @@ class Manual_Flexural_Method():
 
             plt.tight_layout() 
             plt.show()        
-
