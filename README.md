@@ -21,6 +21,12 @@
 
 This repository supports the teaching and learning of **Matrix Structural Analysis**. It combines progressive Jupyter notebooks with a reusable Python package so that students can move from element-level formulations to the assembly and visualization of small 2D structural systems.
 
+<p align="center">
+  <img src="examples/frame_deformed_shape.png" alt="Original and deformed 2D moment frame with displacement contour" width="100%">
+</p>
+
+<p align="center"><em>Original and deformed configuration of a 2D moment frame, including displacement contours and nodal rotations. Generated in <a href="examples/Ejemplo_Class_Matricial.ipynb">Ejemplo_Class_Matricial.ipynb</a>.</em></p>
+
 The current material covers the main ideas required to work with matrix-based structural models:
 
 - degrees of freedom, local and global coordinate systems;
@@ -44,6 +50,7 @@ Repo_Maxtrix_Analisys/
 │   ├── Example_Truss.ipynb
 │   ├── Example_Truss_2.ipynb
 │   ├── Flex_manual_AM_GR1_2026_01.ipynb
+│   ├── frame_deformed_shape.png       # 2D frame visualization shown above
 │   └── *.png                         # figures used by the notebooks
 ├── repo_maxtrix_analisys/
 │   ├── __init__.py                   # public package interface
