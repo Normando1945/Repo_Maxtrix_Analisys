@@ -726,11 +726,14 @@ class PlotInternalForces2D():
     - color_sagging / color_hogging set the fill and label colors of positive / negative values in all diagrams
       (sagging / hogging moment, positive / negative shear, tension / compression).
     - Reactions are obtained by superposing the global action members of the elements at the restrained DOF
-      (DOF numbers greater than gdl), so they include the fixed-end actions of loaded elements.
+      (DOF numbers greater than gdl), so they include the fixed-end actions of loaded elements, minus the external
+      nodal loads applied directly at those DOF.
+    - P_nodal (optional) is the vector of external nodal loads in global coordinates (index 0 -> DOF 1). Its
+      non-zero values are drawn with the span loads in the reactions subplot.
     '''
     def __init__(self, CoordNode = any, Lee_Nodos = any, Lee = any, Fe_L_all = any, wu_e = any, gdl = any,
                  n_sub = 101, scale = 0.12, decimals = 2, units_F = 'T', units_L = 'm', figsize = (16, 22),
-                 color_sagging = '#1f77b4', color_hogging = '#d62728'):
+                 color_sagging = '#1f77b4', color_hogging = '#d62728', P_nodal = None):
         self.CoordNode = CoordNode                                                                                  # Node coordinates table (x, y, ...)
         self.Lee_Nodos = Lee_Nodos                                                                                  # Node connectivity of each element [i, j]
         self.Lee = Lee                                                                                              # Placement vectors of each element
@@ -745,6 +748,7 @@ class PlotInternalForces2D():
         self.figsize = figsize                                                                                      # Figure size
         self.color_sagging = color_sagging                                                                          # Color of positive values (sagging, tension)
         self.color_hogging = color_hogging                                                                          # Color of negative values (hogging, compression)
+        self.P_nodal = P_nodal                                                                                      # External nodal loads (global, index 0 -> DOF 1)
         self.reactions = None                                                                                       # Reactions ordered by restrained DOF (filled by PlotIF_RMF)
 
     def PlotIF_RMF(self):
@@ -814,6 +818,12 @@ class PlotInternalForces2D():
                         dof_node[int(dof)] = (n1 if k < 3 else n2, k % 3)                                           # DOF -> (node, component)
                         if dof > gdl:
                                 R[dof - gdl - 1] += Fe_G[k]
+
+        Pn = np.zeros(nglt)                                                                                         # External nodal loads of all DOF
+        if self.P_nodal is not None:
+                p = np.asarray(self.P_nodal, dtype=float).ravel()
+                Pn[:len(p)] = p
+        R -= Pn[gdl:]                                                                                               # Loads applied directly at the supports
         self.reactions = R.reshape(-1, 1)
 
         supports = {}                                                                                               # node -> [Rx, Ry, Mz] (None if free)
@@ -978,7 +988,41 @@ class PlotInternalForces2D():
                         ax[3].text(xs + 1.6 * r_arc, ys + 1.6 * r_arc, f"M = {abs(Mz):.{dec}f} {uM}", fontsize=10,
                                    ha="left", va="bottom", color=col_R, zorder=6)
                         all_pts.append((xs + 1.6 * r_arc + 0.12 * Lref, ys + 2.0 * r_arc))
-        ax[3].set_title(f"Support Reactions [{uF}, {uM}] and Span Loads")
+
+        col_P = (0, 0.5, 0)                                                                                         # External loads (same color as span loads)
+        for dof in range(1, nglt + 1):
+                Pv = Pn[dof - 1]
+                if abs(Pv) < tol:
+                        continue
+                node, comp = dof_node[dof]
+                xn, yn = CoordNode[node-1, 0], CoordNode[node-1, 1]
+                sp = np.sign(Pv)
+                if comp == 0:                                                                                       # Horizontal load
+                        tx, ty = xn - sp * a_len, yn
+                        ax[3].annotate("", xy=(xn, yn), xytext=(tx, ty),
+                                       arrowprops=dict(arrowstyle="-|>", color=col_P, lw=2.0), zorder=5)
+                        ax[3].text(tx, ty + 0.015 * Lref, f"Px = {abs(Pv):.{dec}f} {uF}", fontsize=10,
+                                   ha="center", va="bottom", color=col_P, fontweight="bold", zorder=6)
+                        all_pts += [(tx - 0.06 * Lref, ty + 0.04 * Lref), (tx + 0.06 * Lref, ty + 0.04 * Lref)]
+                elif comp == 1:                                                                                     # Vertical load
+                        tx, ty = xn, yn - sp * a_len
+                        ax[3].annotate("", xy=(xn, yn), xytext=(tx, ty),
+                                       arrowprops=dict(arrowstyle="-|>", color=col_P, lw=2.0), zorder=5)
+                        ax[3].text(tx + 0.01 * Lref, ty, f"Py = {abs(Pv):.{dec}f} {uF}", fontsize=10,
+                                   ha="left", va="center", color=col_P, fontweight="bold", zorder=6)
+                        all_pts += [(tx + 0.12 * Lref, ty)]
+                else:                                                                                               # Nodal moment
+                        th = np.deg2rad(np.linspace(-60.0, 240.0, 60))
+                        if Pv < 0:
+                                th = th[::-1]                                                                       # Counterclockwise positive
+                        ax_, ay_ = xn + r_arc * np.cos(th), yn + r_arc * np.sin(th)
+                        ax[3].plot(ax_[:-1], ay_[:-1], color=col_P, lw=1.8, zorder=5)
+                        ax[3].annotate("", xy=(ax_[-1], ay_[-1]), xytext=(ax_[-3], ay_[-3]),
+                                       arrowprops=dict(arrowstyle="-|>", color=col_P, lw=1.8), zorder=5)
+                        ax[3].text(xn + 1.4 * r_arc, yn - 1.4 * r_arc, f"M = {abs(Pv):.{dec}f} {uM}", fontsize=10,
+                                   ha="left", va="top", color=col_P, fontweight="bold", zorder=6)
+                        all_pts += [(xn + 1.4 * r_arc + 0.12 * Lref, yn - 2.0 * r_arc)]
+        ax[3].set_title(f"Support Reactions [{uF}, {uM}], Nodal Loads and Span Loads")
 
         # --- Common limits and frame on every subplot -----------------------------------------------------------------
         P = np.array(all_pts)
