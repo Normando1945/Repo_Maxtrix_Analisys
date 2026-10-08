@@ -858,7 +858,7 @@ class PlotInternalForces2D():
                         pts.extend(zip(ox, oy))
                 return pts
 
-        def label(ax, d, k, v, side, sc, text=None, shift=0.06):
+        def label(ax, d, k, v, side, sc, unit, shift=0.10):
                 # Label at point k of element d, placed beyond the diagram ordinate and moved inward along the axis
                 nx, ny = -d["s"], d["c"]
                 o = side * v * sc
@@ -868,7 +868,7 @@ class PlotInternalForces2D():
                 yk = d["yi"] + (d["x"][k] if k is not None else d["L"] / 2.0) * d["s"]
                 tx = xk + inward * d["c"] + (o + pad) * nx
                 ty = yk + inward * d["s"] + (o + pad) * ny
-                ax.text(tx, ty, fmt(v) if text is None else text, fontsize=10, ha="center", va="center",
+                ax.text(tx, ty, f"{fmt(v)} {unit}", fontsize=10, ha="center", va="center",
                         color=col_pos if v >= tol else (col_neg if v <= -tol else (0,0,0)), zorder=6,
                         bbox=dict(boxstyle="round,pad=0.15", facecolor="white", edgecolor="none", alpha=0.75))
                 return (tx, ty)
@@ -891,7 +891,7 @@ class PlotInternalForces2D():
         for d in elems:
                 for k in (0, -1):
                         if abs(d["M"][k]) >= tol:
-                                all_pts.append(label(ax[0], d, k, d["M"][k], -1, scM))
+                                all_pts.append(label(ax[0], d, k, d["M"][k], -1, scM, uM))
                 if d["Xo"] is not None:
                         k = int(np.argmin(np.abs(d["x"] - d["Xo"])))
                         Mmax = -Fe_L[elems.index(d)][2] + Fe_L[elems.index(d)][1] * d["Xo"] - d["w"] * d["Xo"]**2 / 2.0
@@ -901,7 +901,7 @@ class PlotInternalForces2D():
                         xk, yk = d["xi"] + d["Xo"] * d["c"], d["yi"] + d["Xo"] * d["s"]
                         ax[0].plot([xk, xk + o * nx], [yk, yk + o * ny], color=(0.2,0.2,0.2), lw=0.8, ls="--", zorder=3)
                         tx, ty = xk + (o + pad) * nx, yk + (o + pad) * ny
-                        ax[0].text(tx, ty, f"Mmax = {fmt(Mmax)}\nXo = {d['Xo']:.{dec}f} {uL}", fontsize=10,
+                        ax[0].text(tx, ty, f"Mmax = {fmt(Mmax)} {uM}\nXo = {d['Xo']:.{dec}f} {uL}", fontsize=10,
                                    ha="center", va="center", color=col_pos if Mmax >= 0 else col_neg, fontweight="bold",
                                    zorder=6, bbox=dict(boxstyle="round,pad=0.2", facecolor="white", edgecolor="none", alpha=0.85))
                         all_pts.append((tx, ty))
@@ -915,7 +915,7 @@ class PlotInternalForces2D():
         for d in elems:
                 for k in (0, -1):
                         if abs(d["V"][k]) >= tol:
-                                all_pts.append(label(ax[1], d, k, d["V"][k], 1, scV))
+                                all_pts.append(label(ax[1], d, k, d["V"][k], 1, scV, uF))
         ax[1].set_title(f"Shear Force Diagram [{uF}]")
 
         # ==================================================================
@@ -925,7 +925,7 @@ class PlotInternalForces2D():
         all_pts += draw_diagram(ax[2], "N", 1, scN)
         for d in elems:
                 if abs(d["N"][0]) >= tol:
-                        all_pts.append(label(ax[2], d, None, d["N"][0], 1, scN))
+                        all_pts.append(label(ax[2], d, None, d["N"][0], 1, scN, uF))
         ax[2].set_title(f"Axial Force Diagram [{uF}]  —  (+) tension, (−) compression")
 
         # ==================================================================
