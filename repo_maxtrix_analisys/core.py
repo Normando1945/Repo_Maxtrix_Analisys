@@ -262,6 +262,86 @@ class Assembler:
 
 #########################################################################################################################################
 #########################################################################################################################################
+################################ Fixed-End Actions (aep) for 2D MF Element under Uniform Load ###########################################
+#########################################################################################################################################
+#########################################################################################################################################
+
+class AEP_MF_UniformLoad2D:
+    '''
+    What this class does
+    --------------------
+
+    - Builds and returns the fixed-end actions vector (aep) in local coordinates of a 2D MF element under a uniformly
+      distributed load wu, considering the influence of rigid end offsets.
+    - Sign convention: same as MF_K_T_L_Element2D {Axial, Shear, Moment} at ends A and B. A positive wu acts in the
+      local -y direction (gravity load for a horizontal beam), so the aep are the reactions of the fixed element:
+      aep = [0, wu L/2, wu L^2/12, 0, wu L/2, -wu L^2/12] when dA = dB = 0.
+    - L is the flexible span (same meaning as in MF_K_T_L_Element2D); the node-to-node length is L + dA + dB.
+    - For a uniform load on a fixed-fixed span, shear deformation does not change the fixed-end actions (symmetry).
+    '''
+    def __init__(self, wu, L, dA=0.0, dB=0.0, load_on_rigid_ends=True):                                             # Initialize element load properties
+        self.wu = wu                                                                                                # Uniformly distributed load (local -y direction)
+        self.L  = L                                                                                                 # Length of the flexible span
+        self.dA = dA                                                                                                # Rigid end offset at end A (local)
+        self.dB = dB                                                                                                # Rigid end offset at end B (local)
+        self.load_on_rigid_ends = load_on_rigid_ends                                                                # True: wu also acts over the rigid end offsets
+
+    def aep_local(self):
+        wu = self.wu                                                                                                # Using uniformly distributed load
+        L  = self.L                                                                                                 # Using flexible span length
+        dA = self.dA                                                                                                # Using rigid end offset at A
+        dB = self.dB                                                                                                # Using rigid end offset at B
+
+        # --- Fixed-end actions of the flexible span -----------------------------------------------------------------
+        V = wu * L / 2.0                                                                                            # Fixed-end shear: wu L / 2
+        M = wu * L**2 / 12.0                                                                                        # Fixed-end moment: wu L^2 / 12
+        aep_flex = np.array([0.0, V, M, 0.0, V, -M], dtype=float)                                                   # aep at the ends of the flexible span
+
+        # --- Transfer through the rigid end offsets to the nodes (M_A + dA V_A, M_B - dB V_B) -----------------------
+        Tr = np.array([
+            [ 1,  0,  0,  0,   0,  0 ],
+            [ 0,  1,  0,  0,   0,  0 ],
+            [ 0, dA,  1,  0,   0,  0 ],
+            [ 0,  0,  0,  1,   0,  0 ],
+            [ 0,  0,  0,  0,   1,  0 ],
+            [ 0,  0,  0,  0, -dB,  1 ]
+        ], dtype=float)
+        aep = Tr @ aep_flex                                                                                         # aep at the element nodes
+
+        # --- Load acting directly over the rigid end offsets (cantilevers from each node) ---------------------------
+        if self.load_on_rigid_ends:
+            aep = aep + np.array([0.0, wu*dA, wu*dA**2/2.0, 0.0, wu*dB, -wu*dB**2/2.0], dtype=float)
+
+        return aep.reshape(6, 1)                                                                                    # Return aep as a column vector
+
+#########################################################################################################################################
+#########################################################################################################################################
+############################################ Accumulate Nodal Actions of the Structure ##################################################
+#########################################################################################################################################
+#########################################################################################################################################
+
+class Acum:
+        def __init__(self, lee = any, aep = any, P = any, nglt = any):
+              self.lee = lee
+              self.aep = aep
+              self.P = P
+              self.nglt = nglt
+
+        def acum_due_lee(self):
+                lee = self.lee
+                aep = np.ravel(self.aep)
+                P = self.P
+                nglt = self.nglt
+
+                ng = len(lee)
+                for i in range(ng):
+                        ii = int(lee[i])
+                        if ii > 0 and ii <= nglt:
+                                P[ii-1] -= aep[i]
+                return P
+
+#########################################################################################################################################
+#########################################################################################################################################
 #################################################### Managing Multiple 2D MF Elements ###################################################
 #########################################################################################################################################
 #########################################################################################################################################
