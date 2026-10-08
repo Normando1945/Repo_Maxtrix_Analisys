@@ -723,11 +723,14 @@ class PlotInternalForces2D():
 
     - Design sign convention: the moment diagram is drawn on the tension side, as in reinforced concrete; positive
       span moments and negative support moments are labeled with their sign.
+    - color_sagging / color_hogging set the fill and label colors of positive / negative values in all diagrams
+      (sagging / hogging moment, positive / negative shear, tension / compression).
     - Reactions are obtained by superposing the global action members of the elements at the restrained DOF
       (DOF numbers greater than gdl), so they include the fixed-end actions of loaded elements.
     '''
     def __init__(self, CoordNode = any, Lee_Nodos = any, Lee = any, Fe_L_all = any, wu_e = any, gdl = any,
-                 n_sub = 101, scale = 0.12, decimals = 2, units_F = 'T', units_L = 'm', figsize = (16, 22)):
+                 n_sub = 101, scale = 0.12, decimals = 2, units_F = 'T', units_L = 'm', figsize = (16, 22),
+                 color_sagging = '#1f77b4', color_hogging = '#d62728'):
         self.CoordNode = CoordNode                                                                                  # Node coordinates table (x, y, ...)
         self.Lee_Nodos = Lee_Nodos                                                                                  # Node connectivity of each element [i, j]
         self.Lee = Lee                                                                                              # Placement vectors of each element
@@ -740,6 +743,8 @@ class PlotInternalForces2D():
         self.units_F = units_F                                                                                      # Force units
         self.units_L = units_L                                                                                      # Length units
         self.figsize = figsize                                                                                      # Figure size
+        self.color_sagging = color_sagging                                                                          # Color of positive values (sagging, tension)
+        self.color_hogging = color_hogging                                                                          # Color of negative values (hogging, compression)
         self.reactions = None                                                                                       # Reactions ordered by restrained DOF (filled by PlotIF_RMF)
 
     def PlotIF_RMF(self):
@@ -756,8 +761,8 @@ class PlotInternalForces2D():
         uL = self.units_L
         uM = f"{uF}.{uL}"
 
-        col_pos = "#1f77b4"                                                                                         # Positive values (sagging, tension)
-        col_neg = "#d62728"                                                                                         # Negative values (hogging, compression)
+        col_pos = self.color_sagging                                                                                # Positive values (sagging, tension)
+        col_neg = self.color_hogging                                                                                # Negative values (hogging, compression)
         tol = 0.5 * 10**(-dec)                                                                                      # Values below this are labeled as zero
 
         # --- Reference size of the frame ------------------------------------------------------------------------------
