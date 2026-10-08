@@ -703,6 +703,303 @@ class PlotGlobalDislplacemet():
 
 #########################################################################################################################################
 #########################################################################################################################################
+################################### Plot Internal Forces (Moment, Shear, Axial) and Support Reactions ###################################
+#########################################################################################################################################
+#########################################################################################################################################
+
+class PlotInternalForces2D():
+    '''
+    What this class does
+    --------------------
+
+    - Draws the bending moment, shear force and axial force diagrams and the support reactions of a 2D MF structure,
+      in a figure with four subplots, one below the other.
+    - Internal forces are recovered from the local action members {F_e}_L = [N_i, V_i, M_i, N_j, V_j, M_j] of each
+      element and its uniformly distributed load wu (local -y direction, acting over the whole node-to-node length):
+
+        N(x) = -N_i                       (tension positive)
+        V(x) =  V_i - wu x
+        M(x) = -M_i + V_i x - wu x^2 / 2  (sagging positive, tension at the local -y side)
+
+    - Design sign convention: the moment diagram is drawn on the tension side, as in reinforced concrete; positive
+      span moments and negative support moments are labeled with their sign.
+    - color_sagging / color_hogging set the fill and label colors of positive / negative values in all diagrams
+      (sagging / hogging moment, positive / negative shear, tension / compression).
+    - Reactions are obtained by superposing the global action members of the elements at the restrained DOF
+      (DOF numbers greater than gdl), so they include the fixed-end actions of loaded elements.
+    '''
+    def __init__(self, CoordNode = any, Lee_Nodos = any, Lee = any, Fe_L_all = any, wu_e = any, gdl = any,
+                 n_sub = 101, scale = 0.12, decimals = 2, units_F = 'T', units_L = 'm', figsize = (16, 22),
+                 color_sagging = '#1f77b4', color_hogging = '#d62728'):
+        self.CoordNode = CoordNode                                                                                  # Node coordinates table (x, y, ...)
+        self.Lee_Nodos = Lee_Nodos                                                                                  # Node connectivity of each element [i, j]
+        self.Lee = Lee                                                                                              # Placement vectors of each element
+        self.Fe_L_all = Fe_L_all                                                                                    # Local action members of each element
+        self.wu_e = wu_e                                                                                            # Uniformly distributed load of each element
+        self.gdl = gdl                                                                                              # Number of free global DOF
+        self.n_sub = n_sub                                                                                          # Number of points along each element
+        self.scale = scale                                                                                          # Max diagram ordinate as a fraction of the frame size
+        self.decimals = decimals                                                                                    # Decimals of the labels
+        self.units_F = units_F                                                                                      # Force units
+        self.units_L = units_L                                                                                      # Length units
+        self.figsize = figsize                                                                                      # Figure size
+        self.color_sagging = color_sagging                                                                          # Color of positive values (sagging, tension)
+        self.color_hogging = color_hogging                                                                          # Color of negative values (hogging, compression)
+        self.reactions = None                                                                                       # Reactions ordered by restrained DOF (filled by PlotIF_RMF)
+
+    def PlotIF_RMF(self):
+
+        CoordNode = np.asarray(self.CoordNode, dtype=float)
+        Lee_Nodos = np.asarray(self.Lee_Nodos, dtype=int)
+        Lee = np.asarray(self.Lee, dtype=int)
+        Fe_L = np.asarray(self.Fe_L_all, dtype=float).reshape(-1, 6)
+        wu_e = np.asarray(self.wu_e, dtype=float).ravel()
+        gdl = self.gdl
+        n_sub = self.n_sub
+        dec = self.decimals
+        uF = self.units_F
+        uL = self.units_L
+        uM = f"{uF}.{uL}"
+
+        col_pos = self.color_sagging                                                                                # Positive values (sagging, tension)
+        col_neg = self.color_hogging                                                                                # Negative values (hogging, compression)
+        tol = 0.5 * 10**(-dec)                                                                                      # Values below this are labeled as zero
+
+        # --- Reference size of the frame ------------------------------------------------------------------------------
+        x_nodes, y_nodes = CoordNode[:, 0], CoordNode[:, 1]
+        Lref = max(np.ptp(x_nodes), np.ptp(y_nodes), 1e-9)
+
+        # --- Step 1: geometry and internal forces of each element -----------------------------------------------------
+        elems = []
+        for e, (n1, n2) in enumerate(Lee_Nodos):
+                xi, yi = CoordNode[n1-1, 0], CoordNode[n1-1, 1]
+                xj, yj = CoordNode[n2-1, 0], CoordNode[n2-1, 1]
+                Le = np.hypot(xj - xi, yj - yi)                                                                     # Node-to-node length
+                c, s = (xj - xi) / Le, (yj - yi) / Le                                                               # Direction cosines (local x axis)
+
+                Ni, Vi, Mi, Nj, Vj, Mj = Fe_L[e]
+                w = wu_e[e]
+                x = np.linspace(0.0, Le, n_sub)
+
+                N = np.full_like(x, -Ni)                                                                            # Axial force (tension positive)
+                V = Vi - w * x                                                                                      # Shear force
+                M = -Mi + Vi * x - w * x**2 / 2.0                                                                   # Bending moment (sagging positive)
+
+                Xo = None                                                                                           # Zero-shear location (span moment)
+                if w != 0 and 0.0 < Vi / w < Le:
+                        Xo = Vi / w
+
+                elems.append({
+                        "xi": xi, "yi": yi, "xj": xj, "yj": yj, "L": Le, "c": c, "s": s,
+                        "x": x, "N": N, "V": V, "M": M, "w": w, "Xo": Xo,
+                        "bx": xi + x * c, "by": yi + x * s,                                                         # Base line (element axis)
+                })
+
+        # --- Step 2: reactions from the global action members at the restrained DOF ----------------------------------
+        nglt = int(Lee.max())
+        R = np.zeros(nglt - gdl)
+        dof_node = {}
+        for e, (n1, n2) in enumerate(Lee_Nodos):
+                c, s = elems[e]["c"], elems[e]["s"]
+                T = np.array([
+                        [ c, -s, 0,  0,  0, 0 ],
+                        [ s,  c, 0,  0,  0, 0 ],
+                        [ 0,  0, 1,  0,  0, 0 ],
+                        [ 0,  0, 0,  c, -s, 0 ],
+                        [ 0,  0, 0,  s,  c, 0 ],
+                        [ 0,  0, 0,  0,  0, 1 ]
+                ], dtype=float)
+                Fe_G = T @ Fe_L[e]                                                                                  # Global action members of element e
+                for k, dof in enumerate(Lee[e]):
+                        dof_node[int(dof)] = (n1 if k < 3 else n2, k % 3)                                           # DOF -> (node, component)
+                        if dof > gdl:
+                                R[dof - gdl - 1] += Fe_G[k]
+        self.reactions = R.reshape(-1, 1)
+
+        supports = {}                                                                                               # node -> [Rx, Ry, Mz] (None if free)
+        for dof in range(gdl + 1, nglt + 1):
+                node, comp = dof_node[dof]
+                supports.setdefault(node, [None, None, None])[comp] = R[dof - gdl - 1]
+
+        # --- Helpers --------------------------------------------------------------------------------------------------
+        def fmt(v):
+                return f"{0.0:.{dec}f}" if abs(v) < tol else f"{v:.{dec}f}"
+
+        def draw_frame(ax):
+                for d in elems:
+                        ax.plot([d["xi"], d["xj"]], [d["yi"], d["yj"]], color=(0,0,0), lw=2.0, zorder=4)
+                ax.scatter(x_nodes, y_nodes, s=30, color=(0,0,0), zorder=5)
+                h = 0.03 * Lref                                                                                     # Support symbol size
+                for node in supports:
+                        xs, ys = CoordNode[node-1, 0], CoordNode[node-1, 1]
+                        ax.plot([xs - h, xs + h], [ys, ys], color=(0,0,0), lw=2.5, zorder=4)
+                        for t in np.linspace(-h, h, 5):
+                                ax.plot([xs + t, xs + t - 0.5*h], [ys, ys - 0.6*h], color=(0,0,0), lw=1.0, zorder=4)
+
+        def draw_diagram(ax, key, side, sc):
+                # side = -1 draws positive values on the local -y side (tension side for the moment diagram)
+                pts = []
+                for d in elems:
+                        val = d[key]
+                        nx, ny = -d["s"], d["c"]                                                                    # Local +y direction
+                        bx, by = d["bx"], d["by"]
+                        for part, col in ((np.maximum(val, 0.0), col_pos), (np.minimum(val, 0.0), col_neg)):
+                                if np.any(np.abs(part) > 0):
+                                        px = bx + side * part * sc * nx
+                                        py = by + side * part * sc * ny
+                                        poly = np.column_stack([np.r_[bx, px[::-1]], np.r_[by, py[::-1]]])
+                                        ax.add_patch(plt.Polygon(poly, closed=True, facecolor=col, edgecolor="none",
+                                                                 alpha=0.35, zorder=2))
+                        ox = bx + side * val * sc * nx
+                        oy = by + side * val * sc * ny
+                        ax.plot(ox, oy, color=(0.2,0.2,0.2), lw=1.2, zorder=3)
+                        ax.plot([bx[0], ox[0]], [by[0], oy[0]], color=(0.2,0.2,0.2), lw=1.0, zorder=3)
+                        ax.plot([bx[-1], ox[-1]], [by[-1], oy[-1]], color=(0.2,0.2,0.2), lw=1.0, zorder=3)
+                        pts.extend(zip(ox, oy))
+                return pts
+
+        def label(ax, d, k, v, side, sc, unit, shift=0.10):
+                # Label at point k of element d, placed beyond the diagram ordinate and moved inward along the axis
+                nx, ny = -d["s"], d["c"]
+                o = side * v * sc
+                pad = 0.025 * Lref * (np.sign(o) if abs(o) > 0 else 1.0)
+                inward = 0.0 if k is None else (shift * d["L"] if k == 0 else -shift * d["L"])
+                xk = d["xi"] + (d["x"][k] if k is not None else d["L"] / 2.0) * d["c"]
+                yk = d["yi"] + (d["x"][k] if k is not None else d["L"] / 2.0) * d["s"]
+                tx = xk + inward * d["c"] + (o + pad) * nx
+                ty = yk + inward * d["s"] + (o + pad) * ny
+                ax.text(tx, ty, f"{fmt(v)} {unit}", fontsize=10, ha="center", va="center",
+                        color=col_pos if v >= tol else (col_neg if v <= -tol else (0,0,0)), zorder=6,
+                        bbox=dict(boxstyle="round,pad=0.15", facecolor="white", edgecolor="none", alpha=0.75))
+                return (tx, ty)
+
+        def scale_of(key):
+                vmax = max(np.max(np.abs(d[key])) for d in elems)
+                return 0.0 if vmax < tol else self.scale * Lref / vmax
+
+        # --- Figure ---------------------------------------------------------------------------------------------------
+        fig, ax = plt.subplots(4, 1, figsize=self.figsize, constrained_layout=True)
+        fig.suptitle("Frame Structure: Internal Forces and Support Reactions",
+                     fontsize=16, fontweight="bold", color=(0,0,1))
+        all_pts = list(zip(x_nodes, y_nodes))
+
+        # ==================================================================
+        # SUBPLOT 1: bending moment (drawn on the tension side)
+        # ==================================================================
+        scM = scale_of("M")
+        all_pts += draw_diagram(ax[0], "M", -1, scM)
+        for d in elems:
+                for k in (0, -1):
+                        if abs(d["M"][k]) >= tol:
+                                all_pts.append(label(ax[0], d, k, d["M"][k], -1, scM, uM))
+                if d["Xo"] is not None:
+                        k = int(np.argmin(np.abs(d["x"] - d["Xo"])))
+                        Mmax = -Fe_L[elems.index(d)][2] + Fe_L[elems.index(d)][1] * d["Xo"] - d["w"] * d["Xo"]**2 / 2.0
+                        nx, ny = -d["s"], d["c"]
+                        o = -Mmax * scM
+                        pad = 0.06 * Lref * (np.sign(o) if abs(o) > 0 else 1.0)
+                        xk, yk = d["xi"] + d["Xo"] * d["c"], d["yi"] + d["Xo"] * d["s"]
+                        ax[0].plot([xk, xk + o * nx], [yk, yk + o * ny], color=(0.2,0.2,0.2), lw=0.8, ls="--", zorder=3)
+                        tx, ty = xk + (o + pad) * nx, yk + (o + pad) * ny
+                        ax[0].text(tx, ty, f"Mmax = {fmt(Mmax)} {uM}\nXo = {d['Xo']:.{dec}f} {uL}", fontsize=10,
+                                   ha="center", va="center", color=col_pos if Mmax >= 0 else col_neg, fontweight="bold",
+                                   zorder=6, bbox=dict(boxstyle="round,pad=0.2", facecolor="white", edgecolor="none", alpha=0.85))
+                        all_pts.append((tx, ty))
+        ax[0].set_title(f"Bending Moment Diagram [{uM}]  —  drawn on the tension side (+ sagging, − hogging)")
+
+        # ==================================================================
+        # SUBPLOT 2: shear force
+        # ==================================================================
+        scV = scale_of("V")
+        all_pts += draw_diagram(ax[1], "V", 1, scV)
+        for d in elems:
+                for k in (0, -1):
+                        if abs(d["V"][k]) >= tol:
+                                all_pts.append(label(ax[1], d, k, d["V"][k], 1, scV, uF))
+        ax[1].set_title(f"Shear Force Diagram [{uF}]")
+
+        # ==================================================================
+        # SUBPLOT 3: axial force
+        # ==================================================================
+        scN = scale_of("N")
+        all_pts += draw_diagram(ax[2], "N", 1, scN)
+        for d in elems:
+                if abs(d["N"][0]) >= tol:
+                        all_pts.append(label(ax[2], d, None, d["N"][0], 1, scN, uF))
+        ax[2].set_title(f"Axial Force Diagram [{uF}]  —  (+) tension, (−) compression")
+
+        # ==================================================================
+        # SUBPLOT 4: support reactions and span loads
+        # ==================================================================
+        a_len = 0.08 * Lref                                                                                         # Reaction arrow length
+        r_arc = 0.035 * Lref                                                                                        # Moment arc radius
+        q_len = 0.05 * Lref                                                                                         # Load arrow length
+        col_R = (0.8, 0.0, 0.0)
+        for d in elems:
+                if d["w"] == 0:
+                        continue
+                nx, ny = -d["s"], d["c"]
+                q = np.sign(d["w"]) * q_len
+                for t in np.linspace(0.0, d["L"], 11):
+                        hx, hy = d["xi"] + t * d["c"], d["yi"] + t * d["s"]
+                        ax[3].annotate("", xy=(hx, hy), xytext=(hx + q * nx, hy + q * ny),
+                                       arrowprops=dict(arrowstyle="-|>", color=(0,0.5,0), lw=1.0), zorder=3)
+                ax[3].plot([d["xi"] + q * nx, d["xj"] + q * nx], [d["yi"] + q * ny, d["yj"] + q * ny],
+                           color=(0,0.5,0), lw=1.0, zorder=3)
+                mx, my = (d["xi"] + d["xj"]) / 2.0 + 1.6 * q * nx, (d["yi"] + d["yj"]) / 2.0 + 1.6 * q * ny
+                ax[3].text(mx, my, f"wu = {abs(d['w']):.3f} {uF}/{uL}", fontsize=10, ha="center", va="center",
+                           color=(0,0.5,0), zorder=6)
+                all_pts.append((mx, my))
+
+        for node, (Rx, Ry, Mz) in supports.items():
+                xs, ys = CoordNode[node-1, 0], CoordNode[node-1, 1]
+                if Rx is not None and abs(Rx) >= tol:
+                        sx = np.sign(Rx)
+                        ax[3].annotate("", xy=(xs, ys), xytext=(xs - sx * a_len, ys),
+                                       arrowprops=dict(arrowstyle="-|>", color=col_R, lw=2.0), zorder=5)
+                        ax[3].text(xs - sx * a_len, ys - 0.025 * Lref, f"Rx = {abs(Rx):.{dec}f} {uF}", fontsize=10,
+                                   ha="center", va="top", color=col_R, zorder=6)
+                        all_pts.append((xs - sx * a_len, ys - 0.05 * Lref))
+                if Ry is not None and abs(Ry) >= tol:
+                        sy = np.sign(Ry)
+                        ax[3].annotate("", xy=(xs, ys), xytext=(xs, ys - sy * a_len),
+                                       arrowprops=dict(arrowstyle="-|>", color=col_R, lw=2.0), zorder=5)
+                        ax[3].text(xs, ys - sy * a_len - sy * 0.01 * Lref, f"Ry = {abs(Ry):.{dec}f} {uF}", fontsize=10,
+                                   ha="center", va="top" if sy > 0 else "bottom", color=col_R, zorder=6)
+                        all_pts.append((xs, ys - sy * a_len - sy * 0.04 * Lref))
+                if Mz is not None and abs(Mz) >= tol:
+                        th = np.deg2rad(np.linspace(110.0, 430.0, 60))                                              # Arc that leaves a gap for the column
+                        if Mz < 0:
+                                th = th[::-1]                                                                       # Counterclockwise positive
+                        ax_, ay_ = xs + r_arc * np.cos(th), ys + r_arc * np.sin(th)
+                        ax[3].plot(ax_[:-1], ay_[:-1], color=col_R, lw=1.8, zorder=5)
+                        ax[3].annotate("", xy=(ax_[-1], ay_[-1]), xytext=(ax_[-3], ay_[-3]),
+                                       arrowprops=dict(arrowstyle="-|>", color=col_R, lw=1.8), zorder=5)
+                        ax[3].text(xs + 1.6 * r_arc, ys + 1.6 * r_arc, f"M = {abs(Mz):.{dec}f} {uM}", fontsize=10,
+                                   ha="left", va="bottom", color=col_R, zorder=6)
+                        all_pts.append((xs + 1.6 * r_arc + 0.12 * Lref, ys + 2.0 * r_arc))
+        ax[3].set_title(f"Support Reactions [{uF}, {uM}] and Span Loads")
+
+        # --- Common limits and frame on every subplot -----------------------------------------------------------------
+        P = np.array(all_pts)
+        mx_, my_ = 0.05 * Lref, 0.05 * Lref
+        x_lim = [P[:, 0].min() - mx_, P[:, 0].max() + mx_]
+        y_lim = [P[:, 1].min() - my_, P[:, 1].max() + my_]
+        for a in ax:
+                draw_frame(a)
+                a.set_xlim(x_lim)
+                a.set_ylim(y_lim)
+                a.set_aspect("equal")
+                a.set_xlabel(f"X [{uL}]")
+                a.set_ylabel(f"Y [{uL}]")
+
+        plt.show()
+
+
+
+
+#########################################################################################################################################
+#########################################################################################################################################
 ########################################################## Plot Results Simple Beam #####################################################
 #########################################################################################################################################
 #########################################################################################################################################
